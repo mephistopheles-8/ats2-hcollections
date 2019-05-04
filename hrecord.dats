@@ -111,7 +111,11 @@ implement main0 ()
   = println!("Hello [harray]")
   where {
     val () = println!( sizeof<int64> )
-  //  val () = println!(tlist_size<int ::: int32 ::: int64 ::: tnil>()  )
-
+    val (pf | sz ) = tlist_size<int ::: int32 ::: int64 ::: tnil>() 
+    val (pf1 | len ) = tlist_length<int ::: int32 ::: int64 ::: tnil>() 
+    val () = println!(sz) 
+    val () = println!(len) 
+    prval () = TLISTSZ_elim( pf )
+    prval () = TLISTLEN_elim( pf1 )
 
   }
