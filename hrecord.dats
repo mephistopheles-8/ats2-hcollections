@@ -139,25 +139,26 @@ implement (a:vt@ype+, tl:tlist)
        in end
 
 
-absview hinit( tl:tlist, l:addr )
 absvtype hrecord( tl:tlist, l:addr )
-absvtype hrecordinit( tl:tlist, l:addr )
+absvtype hrecordinit( tl0:tlist, tl:tlist, l:addr )
 
+(** Creates an intermediary until the 
+    user finishes initializing **)
 extern
 fun {tl:tlist} 
   hrecordinit_create( ) 
-  : [l:addr] (hinit( tl, l) | hrecordinit(tl,l) ) 
+  : [l:addr] ( hrecordinit(tl,tl,l) ) 
 
 extern
 fun {a:vt@ype+}{tl0,tl1:tlist} 
   hrecordinit_set{l:addr}
-  ( !hinit( a ::: tl0, l) >> hinit(tl0,l) | !hrecordinit(tl1,l) ) 
+  ( !hrecordinit( a ::: tl0 , tl1,l) >> hrecordinit( tl0, tl1, l) ) 
   : void 
 
 extern
 castfn hrecord_finalize{tl:tlist}{l:addr}
-  ( hinit(tnil, l) | hrecordinit(tl,l) ) 
-  : hrecord( tl, l)
+  ( hrecordinit(tnil,tl,l) ) 
+  : hrecord(tl, l)
 
 
 (**
@@ -189,6 +190,20 @@ castfn hrecord_finalize{tl:tlist}{l:addr}
     interface 
 **)
 
+
+(** User implements these for all types of interest **)
+extern
+fun {a:vt@ype+}
+hrecord$init( &a? >> a ) : void 
+
+extern
+fun {tl:tlist} 
+hrecord_create_b0ytes{n:nat}{l:addr}( 
+    pb: b0ytes(n) @ l
+  , psz: TLISTSZ(n,tl)
+  | buf: ptr l
+  , sz: size_t n
+): hrecord(tl, l)
 
 
 
