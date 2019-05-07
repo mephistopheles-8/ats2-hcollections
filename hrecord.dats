@@ -20,8 +20,39 @@ dataprop TLISTSZ (int,tlist) =
   | {n:nat}{a:vt@ype+}{tl:tlist}
     TLISTSZcons (n + sizeof(a), a ::: tl ) of TLISTSZ( n, tl )
 
+(** Associate indicies with a type **)
+dataprop TLISTIND( int , tlist, vt@ype+ ) =
+  | {a:vt@ype+}{tl:tlist} 
+    TLISTINDbas (0, a ::: tl, a)
+  | {n:pos}{a,b:vt@ype+}{tl:tlist} 
+    TLISTINDcas (n, b ::: tl, a)
+      of TLISTIND(n-1, tl, a)
+
+dataprop TLISTOFFS( i:int,sz: int , tl:tlist ) =
+  | {tl:tlist} 
+    TLISTOFFSbas (0,0,tl)
+  | {n:pos}{a:vt@ype+}{sz:nat | sz >= sizeof(a)}{tl:tlist} 
+    TLISTOFFScas (n,sz,a ::: tl)
+      of TLISTOFFS(n-1,sz - sizeof(a),tl)
+
 extern
 praxi size_is_nat{a:vt@ype+}() : [sizeof(a) >= 0] void
+
+(** This is useless...**)
+extern prfun
+lemma_tlist_len_exists{tl:tlist} ()
+  : [len:nat] ( TLISTLEN(len,tl) | size_t len )
+
+primplmnt
+lemma_tlist_len_exists{tl}()
+  = scase tl of
+    | tlist_nil() => ( TLISTLENnil() | i2sz(0) )
+    | tlist_cons(a,tl0) =>
+      let
+        prval (pf | len) = lemma_tlist_len_exists{tl0}()
+      in ( TLISTLENcons(pf) | len + 1 )
+      end
+
 
 fun 
   {tl:tlist}
@@ -58,6 +89,131 @@ fun
     run_loop<tlist_cons(a,tl)>() = loop<a><tl>()
 
   in run_loop<tl>()
+  end 
+
+fun 
+  {tl:tlist}
+  tlist_offset{ind,len:nat | ind < len; len > 0}
+  ( pf: TLISTLEN(len,tl) | i: size_t ind ) 
+  : [sz:nat] (TLISTOFFS(ind,sz,tl) | size_t sz) =
+  let
+
+    extern
+    fun { a: vt@ype+  }
+        { tl: tlist  }
+        loop{ind:nat}( size_t ind  )
+        : [sz:nat] (TLISTOFFS(ind,sz,a ::: tl) | size_t sz ) 
+    
+    extern
+    fun { tl: tlist  }
+        run_loop{ind:nat} ( size_t ind )
+        : [sz:nat] (TLISTOFFS(ind,sz, tl) | size_t sz ) 
+
+    implement (a)
+    loop<a><tlist_nil()> (i) =
+      let
+        val () = assertloc( i = 0 )
+      in ( TLISTOFFSbas() | i2sz(0) ) 
+      end
+    
+    implement (a,b,tl)
+    loop<a><tlist_cons(b,tl)> (i) =
+      case+ sz2i(i) of
+       | 0 => (TLISTOFFSbas() | i2sz(0) )
+       | _ =>>  
+          let   
+            val (pf | sz0) =  loop<b><tl>( i - 1 )
+            (** This is mostly to break tail recursion **)
+            val () = assertloc( sizeof<a> >= 0 )
+           in (TLISTOFFScas( pf ) | sz0 + sizeof<a> )
+          end
+
+    implement (a,tl)
+    run_loop<tlist_cons(a,tl)>(i) = loop<a><tl>(i)
+
+  in run_loop<tl>( i )
+  end 
+
+fun
+  {tl:tlist}
+  {a0:vt@ype+} 
+  tlist_ind_of{ind,len:nat | ind < len; len > 0}
+  ( pf: TLISTLEN(len,tl) | i: size_t ind ) 
+  : [b:bool] (option_v(TLISTIND(ind,tl,a0), b) | bool b) =
+  let
+
+    extern
+    fun { a: vt@ype+  }
+        { tl: tlist  }
+        loop{ind:nat}( size_t ind  )
+        : [b:bool] (option_v(TLISTIND(ind,a ::: tl,a0), b) | bool b)
+    
+    extern
+    fun { tl: tlist  }
+        run_loop{ind:nat} ( size_t ind )
+        : [b:bool] (option_v(TLISTIND(ind,tl,a0), b) | bool b)
+
+    implement (a)
+    loop<a><tlist_nil()> (i) =
+      let
+        val () = assertloc( i = 0 )
+      in ( None_v() | false ) 
+      end
+   
+    implement
+    loop<a0><tlist_nil()>(i) =
+      let
+        val () = assertloc( i = 0 )
+      in ( Some_v(TLISTINDbas()) | true ) 
+      end
+
+ 
+    implement (a,b,tl)
+    loop<a><tlist_cons(b,tl)> (i) =
+      case+ sz2i(i) of
+       | 0 => (None_v() | false )
+       | _ =>>  
+          let   
+            val (pf | sz0) =  loop<b><tl>( i - 1 )
+            val () = ignoret(5)
+           in if sz0 
+              then 
+                let
+                  prval Some_v(pf) = pf
+                in ( Some_v( TLISTINDcas( pf ) ) | true )
+                end 
+              else 
+                let
+                  prval None_v () = pf
+                in ( None_v() | false )
+                end 
+          end
+    
+    implement (b,tl)
+    loop<a0><tlist_cons(b,tl)> (i) =
+      case+ sz2i(i) of
+       | 0 => (Some_v(TLISTINDbas()) | true )
+       | _ =>>  
+          let   
+            val (pf | sz0) =  loop<b><tl>( i - 1 )
+            val () = ignoret(5)
+           in if sz0 
+              then 
+                let
+                  prval Some_v(pf) = pf
+                in ( Some_v( TLISTINDcas( pf ) ) | true )
+                end 
+              else 
+                let
+                  prval None_v () = pf
+                in ( None_v() | false )
+                end 
+          end
+
+    implement (a,tl)
+    run_loop<tlist_cons(a,tl)>(i) = loop<a><tl>(i)
+
+  in run_loop<tl>( i )
   end 
 
 fun 
@@ -100,6 +256,7 @@ fun
   in run_loop<tl>()
   end 
 
+
 datavtype hlist_vt( tlist, int ) =
   | hlist_nil (tnil,0) 
   | {n:nat}{a:vt@ype+}{tl:tlist}
@@ -139,26 +296,76 @@ implement (a:vt@ype+, tl:tlist)
        in end
 
 
-absvtype hrecord( tl:tlist, l:addr )
-absvtype hrecordinit( tl0:tlist, tl:tlist, l:addr )
-
+absvtype hrecord( tl:tlist, len: int, sz: int, l:addr )
+vtypedef hrecord0(tl:tlist, len:int) = [sz:nat][l:addr] hrecord(tl,len,sz,l)
 (** Creates an intermediary until the 
     user finishes initializing **)
 extern
-fun {tl:tlist} 
-  hrecordinit_create( ) 
-  : [l:addr] ( hrecordinit(tl,tl,l) ) 
+fun {} 
+  hrecord_nil{sz:nat}( sz: size_t sz ) 
+  : [l:addr] hrecord(tnil,0,sz,l) 
+
+implement {}
+hrecord_nil{sz}( sz ) =
+  $UNSAFE.castvwtp0{ [l:addr] hrecord(tnil,0,sz,l) }( 
+    arrayptr_make_elt<byte>( sz, i2byte(0)) 
+  )
+
+
+
 
 extern
-fun {a:vt@ype+}{tl0,tl1:tlist} 
-  hrecordinit_set{l:addr}
-  ( !hrecordinit( a ::: tl0 , tl1,l) >> hrecordinit( tl0, tl1, l) ) 
-  : void 
+fun {tl:tlist}
+  hrecord_create_hlist{n:nat}( h: hlist_vt(tl,n) ) 
+  : [l:addr][sz:nat] hrecord(tl,n,sz,l)
+ 
+extern
+fun {a:vt@ype+}{tl:tlist}
+  hrecord_push{sz:nat | sz >= sizeof(a)}{len:nat}{l:addr}( 
+    hr: !hrecord(tl,len,sz,l) >> hrecord(a ::: tl,len + 1,sz - sizeof(a),l), x: a 
+  ): void 
 
 extern
-castfn hrecord_finalize{tl:tlist}{l:addr}
-  ( hrecordinit(tnil,tl,l) ) 
-  : hrecord(tl, l)
+fun {a:vt@ype+}{tl:tlist}
+  hrecord_pop{sz:nat}{len:pos}{l:addr}( 
+    hr: !hrecord(a ::: tl,len,sz,l) >> hrecord(tl,len - 1,sz + sizeof(a),l)  
+  ): a 
+
+extern
+fun {a:vt@ype+}{tl:tlist}
+  hrecord_exch{ind,len:nat | ind < len}(
+    pf : TLISTIND(ind,tl,a) 
+  | hr: !hrecord0(tl,len)
+  , ind: size_t ind
+  , x: a 
+  ): a 
+
+extern
+fun {a,env:vt@ype+}{tl:tlist}
+  hrecord_with_env{ind,len:nat | ind < len}(
+    pf : TLISTIND(ind,tl,a) 
+  | hr: !hrecord0(tl,len)
+  , ind: size_t ind
+  , x: (&a >> _, &env >> _) -> void
+  , env: &env >> _ 
+  ): void 
+
+
+extern
+fun {a:vt@ype+}
+    {env:vt@ype+}
+    hrecord_foreach$fwork{n:nat}( i : size_t n,  &a >> _, &env >> _ ) : void
+
+extern
+fun {a:vt@ype+}
+    {env:vt@ype+}
+    hrecord_foreach$cont{n:nat}(i: size_t n, &a, &env ) : bool
+
+extern
+fun {tl:tlist}{env: vt@ype+}
+  hrecord_foreach_env{n:nat}( h: !hrecord0(tl,n), env: &env >> _ ) 
+  : [m:nat | m <= n] size_t m
+ 
 
 
 (**
@@ -189,13 +396,7 @@ castfn hrecord_finalize{tl:tlist}{l:addr}
     This would probably provide the best 
     interface 
 **)
-
-
-(** User implements these for all types of interest **)
-extern
-fun {a:vt@ype+}
-hrecord$init( &a? >> a ) : void 
-
+(** Create an hrecord from static array **)
 extern
 fun {tl:tlist} 
 hrecord_create_b0ytes{n:nat}{l:addr}( 
@@ -203,7 +404,7 @@ hrecord_create_b0ytes{n:nat}{l:addr}(
   , psz: TLISTSZ(n,tl)
   | buf: ptr l
   , sz: size_t n
-): hrecord(tl, l)
+): hrecord(tnil,0,n,l)
 
 
 
@@ -213,9 +414,29 @@ implement main0 ()
         
     val () = println!( sizeof<int64> )
     val (pf | sz )   = tlist_size<int ::: int32 ::: int64 ::: tnil>() 
-    val (pf1 | len ) = tlist_length<int ::: int32 ::: int64 ::: tnil>() 
-    val () = println!(sz) 
-    val () = println!(len) 
+    val (pf1 | len ) = tlist_length<int ::: int32 ::: int64 ::: tnil>()
+
+    val () = assertloc( len = 3 )
+
+    val () = println!("Size: ", sz) 
+    val () = println!("Len:", len) 
+    val (pf2 | offs ) = tlist_offset<int ::: int32 ::: int64 ::: tnil>(pf1 | i2sz(0))
+    val () = println!("Offs 0:", offs) 
+    val (pf2 | offs ) = tlist_offset<int ::: int32 ::: int64 ::: tnil>(pf1 | i2sz(1))
+    val () = println!("Offs 1:", offs) 
+    val (pf2 | offs ) = tlist_offset<int ::: int32 ::: int64 ::: tnil>(pf1 | i2sz(2))
+    val () = println!("Offs 2:", offs) 
+    
+    val (pf3 | isind ) = tlist_ind_of<int ::: int32 ::: int64 ::: tnil><int>(pf1 | i2sz(0))
+    val () = println!("Ind 0 is int:", isind)
+    val () = assertloc ( isind ) 
+    prval Some_v(_) = pf3
+    
+    val (pf3 | isind ) = tlist_ind_of<int ::: int32 ::: int64 ::: tnil><bool>(pf1 | i2sz(0))
+    val () = println!("Ind 0 is bool:", isind)
+    val () = assertloc ( ~isind ) 
+    prval None_v() = pf3
+ 
     val x : int = 5
     val y : bool = true
     val tl0 = hlist_cons( y, hlist_cons( x, hlist_nil() ))
