@@ -12,7 +12,7 @@ infixr :::
 #define ::: tlist_cons
 #define tnil tlist_nil
 
-absvtype hrecord(tl:tlist,l:addr) = ptr
+absvtype hrecord(tl:tlist,l:addr) = ptr l
 
 dataprop TLISTLEN (int,tlist) =
   | TLISTLENnil (0, tnil)
@@ -444,7 +444,7 @@ implement {tl:tlist}
     loop<tlist_cons(a,tl0)>(p,sz,hl) =
       let
 
-        val () = assertloc( sz >  sizeof<a> )
+        val () = assertloc( sz >=  sizeof<a> )
         val p0 = ptr_add<byte>(p,sz - sizeof<a>)
         val () = assertloc(p0 > the_null_ptr)
            
@@ -596,6 +596,16 @@ hrecord_foreach_env( hr,  env ) =
 extern
 fun {a:vt@ype+}
     hrecord_clear$clear(  &a >> a? ) : void
+
+
+implement(a:t0p)
+hrecord_clear$clear<a>( a ) = () where { prval () = topize(a) }
+
+implement(a:vt0p)
+hrecord_clear$clear<a>( a ) = gclear_ref<a>(a)
+
+
+
 (*
 extern
 fun {a:vt@ype+}
@@ -626,12 +636,12 @@ hrecord_clear( hr  ) =
     loop<tlist_cons(a,tl0)>(p,sz) =
       let
 
-        val () = assertloc( sz >  sizeof<a> )
+        val () = assertloc( sz >=  sizeof<a> )
         val p0 = ptr_add<byte>(p,sz - sizeof<a>)
 
         val () = assertloc(p0 > the_null_ptr)
         val (pf,plf | p0) = $UNSAFE.ptr1_vtake{a}( p0 )
-
+        
         val () = hrecord_clear$clear<a>( !p0 )
       
         (** FIXME **) 
@@ -657,6 +667,23 @@ hrecord_clear( hr  ) =
   in sz
   end
 
+extern
+fun {tl:tlist}
+  hrecord_free{len:nat}( h: hrecord0(tl,len) ) 
+  : void
+
+implement {tl}
+hrecord_free{len}( h ) = 
+  let
+   val _ = hrecord_clear<tl>( h ) 
+   val ar = $UNSAFE.castvwtp0{arrayptr(byte,len)}( h )
+     
+  in free( ar )
+  end
+
+
+
+
 (** Create an hrecord from static array **)
 
 absview hrecord_static( x:int, l:addr )
@@ -676,8 +703,6 @@ hrecord_claim_b0ytes{n:nat}{l:addr}(
     pv: hrecord_static(n,l)
   | hr: hrecord(tnil,0,n,l)
   ): ( b0ytes(n) @ l | ptr l )
-
-
 
 implement main0 () 
   = println!("Hello [harray]")
@@ -726,4 +751,45 @@ implement main0 ()
 
     val () = hlist_vt_free<tl>( tl0 )
 
+
+    (** Static hrecords **)
+    val (psz | sz0) = tlist_size<tl>()
+    
+    var buf = @[byte][1024]()    
+    val (pv | record) = hrecord_create_b0ytes( view@buf | addr@buf ) 
+    val () = assertloc( sizeof<int> < 1024 )
+    val () = assertloc((i2sz(1024) -  sizeof<int>) >= sizeof<bool> )
+    
+    val () = hrecord_push<int><tnil>( record , 5 )
+    val () = hrecord_push<bool><int ::: tnil>( record , true )
+    val b = hrecord_pop<bool><int ::: tnil>( record  )
+    val () = println!("pop ",b)
+    val b = hrecord_pop<int><tnil>( record  )
+    val () = println!("pop ",b)
+    
+    val () = hrecord_push<int><tnil>( record , 5 )
+    val () = hrecord_push<bool><int ::: tnil>( record , true )
+    val sz = hrecord_clear<tl>( record )
+    val () = assertloc( (sizeof<int> + sizeof<bool>) = sz )
+    val (pf | p ) = hrecord_claim_b0ytes( pv | record ) 
+    prval () = view@buf := pf
+
+    (** Dyn records **)
+    val record = hrecord_nil<>( i2sz(1024) )
+   
+    val () = hrecord_push<int><tnil>( record , 5 )
+    val () = hrecord_push<bool><int ::: tnil>( record , true )
+    val b = hrecord_pop<bool><int ::: tnil>( record  )
+    val () = println!("pop ",b)
+    val b = hrecord_pop<int><tnil>( record  )
+    val () = println!("pop ",b)
+
+    val () = hrecord_free<tnil>( record )
+
+    val tlz = hlist_cons( y, hlist_cons( x, hlist_nil() ))
+    val record = hrecord_create_hlist<tl>(tlz)
+    val () = hrecord_free<tl>( record )
+
   }
+
+absimpl hrecord(tl,n,sz,l) = ptr
