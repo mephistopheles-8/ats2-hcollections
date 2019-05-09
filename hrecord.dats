@@ -423,46 +423,44 @@ hrecord_pop{sz}{len}{l}( hr ) =
 
 
 implement {tl:tlist}
-  hrecord_create_hlist( hl ) =
+  hrecord_create_hlist{n}( hl ) =
   let
     val (pf | sz) = tlist_size<tl>()
+
     val hr = hrecord_nil<>( sz ) 
+    val p  = hrecord_ptrcast( hr )
 
-    extern 
-    fun {tl1:tlist}
-      loop{sz,len:nat}{l:addr}(
-        pf: TLISTSZ(sz,tl1) 
-      | hr: !hrecord(tnil,0,sz,l) >> hrecord(tl1,len,0,l)
-      , hl: hlist_vt(tl1,len)
-      , sz: size_t sz
-      ): void
+    extern fun {tl:tlist}
+    loop {l:addr}{n:nat}{len:nat}(p: ptr l, sz: size_t n, hlist_vt(tl,len) ) : void
+    
+    implement
+    loop<tlist_nil()>(p,sz,hl) = 
+      let
+        val ~hlist_nil() = hl
+      in
+      end
 
-    extern 
-    fun {a:vt@ype+}{tl0,tl1:tlist}
-      swap{sz,len1,len2:nat | sz >= sizeof(a); len2 > 0}{l:addr}(
-        hr: !hrecord(tl0,len1,sz,l) >> hrecord(a ::: tl0,len1 + 1,sz - sizeof(a),l)
-      , hl: hlist_vt(a ::: tl1,len2)
-      , sz: size_t sz
-      ): hlist_vt(tl1,len2-1)
+    implement (a,tl0)
+    loop<tlist_cons(a,tl0)>(p,sz,hl) =
+      let
 
+        val () = assertloc( sz >  sizeof<a> )
+        val p0 = ptr_add<byte>(p,sz - sizeof<a>)
+        val () = assertloc(p0 > the_null_ptr)
+           
+        val ~hlist_cons(x,xs) = hl
+        val () = 
+          $UNSAFE.ptr1_set<a>( p0, x ) 
+    
+        val () = loop<tl0>(p,sz - sizeof<a>, xs)
+      in ignoret(5)
+      end
 
-    implement(a,tl0,tl1)
-    swap<a><tl0,tl1>(
-      hr, hl, sz 
-    ) = let
-          val+~hlist_cons(x,xs) = hl
-          val () = hrecord_push<a><tl0>( hr, x )
-        in xs
-        end 
+    val () = loop<tl>( p, sz, hl )
 
+    val hr1 = $UNSAFE.castvwtp0{[l:addr] hrecord(tl,n,0,l) }(hr)
 
-
-
-
-
-    val () = loop<tl>( pf | hr, hl, sz )
-
-  in hr
+  in hr1
   end
 
 
@@ -587,7 +585,7 @@ hrecord_foreach_env( hr,  env ) =
         
         prval () = plf(pf) 
 
-        val () = loop<tl0>(p0,sz - sizeof<a>, env)
+        val () = loop<tl0>(p,sz - sizeof<a>, env)
       in ignoret(5)
       end
 
@@ -643,7 +641,7 @@ hrecord_clear( hr  ) =
         prval () = plf( pf ) 
         (*** ***)
  
-        val () = loop<tl0>(p0,sz - sizeof<a>)
+        val () = loop<tl0>(p,sz - sizeof<a>)
       in ignoret(5)
       end
 
