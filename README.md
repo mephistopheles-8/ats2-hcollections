@@ -3,10 +3,10 @@
 __Work in progress...__
 
 This is an implementation of heterogeneous datatypes
-in ATS2.
+for ATS2.
 
-a) `hlist_vt` - heterogeneous linked list implementation
-b) `hrecord` - flat, heterogeneous records
+- `hlist_vt` - heterogeneous linked list implementation
+- `hrecord` - flat, heterogeneous records
 
 Both collections may contain viewtypes.
 
