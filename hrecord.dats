@@ -542,19 +542,18 @@ hrecord_with_env{ind,len}( pf | hr, ind, f, env ) =
 extern
 fun {a:vt@ype+}
     {env:vt@ype+}
-    hrecord_foreach$fwork{n:nat}( i : size_t n,  &a >> _, &env >> _ ) : void
+    hrecord_foreach$fwork(  &a >> _, &env >> _ ) : void
 
 extern
 fun {a:vt@ype+}
     {env:vt@ype+}
-    hrecord_foreach$cont{n:nat}(i: size_t n, &a, &env ) : bool
+    hrecord_foreach$cont(  &a, &env ) : bool
 
 extern
 fun {tl:tlist}{env: vt@ype+}
   hrecord_foreach_env{n:nat}( h: !hrecord0(tl,n), env: &env >> _ ) 
   : [m:nat | m <= n] size_t m
  
-
 
 (**
   Heterogenous records with O(1) storage and retrieval
