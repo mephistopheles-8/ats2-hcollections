@@ -25,7 +25,5 @@ useful for eDSLs and language design.
 - Limit the number of assertions
 - Further testing
 - Make hrecords easier to use.
-- Allow the user to stop foreach loop
-- Return sizes after push / pop
 
 License: MIT
