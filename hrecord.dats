@@ -1,6 +1,10 @@
 
 #include "share/atspre_staload.hats"
 
+(** FIXME : Kill some of the asserts when you have a minute **)
+
+
+
 datasort tlist =
   | tlist_nil of () | tlist_cons of (vt@ype+, tlist)
 
@@ -543,49 +547,119 @@ extern
 fun {a:vt@ype+}
     {env:vt@ype+}
     hrecord_foreach$fwork(  &a >> _, &env >> _ ) : void
-
+(*
 extern
 fun {a:vt@ype+}
     {env:vt@ype+}
     hrecord_foreach$cont(  &a, &env ) : bool
+*)
+extern
+fun {env: vt@ype+}{tl:tlist}
+  hrecord_foreach_env{n:nat}( h: !hrecord0(tl,n), env: &env >> _ ) 
+  : void//[m:nat | m <= n] size_t m
+ 
+implement {env}{tl}
+hrecord_foreach_env( hr,  env ) =
+  let
+    val p  = hrecord_ptrcast( hr )
+    (** Perhaps some of these should be arguments **)
+    (** This is weird because data is stored earliest --> latest **)
+    val (pfs | sz) = tlist_size<tl>()
+
+
+    extern fun {tl:tlist}
+    loop {l:addr}{n:nat}(p: ptr l, sz: size_t n, env : &env >> _ ) : void
+    
+    implement
+    loop<tlist_nil()>(p,sz,env) = ()
+
+    implement (a,tl0)
+    loop<tlist_cons(a,tl0)>(p,sz,env) =
+      let
+
+        val () = assertloc( sz >  sizeof<a> )
+        val p0 = ptr_add<byte>(p,sz - sizeof<a>)
+
+        val () = assertloc(p0 > the_null_ptr)
+        val (pf,plf | p0) = $UNSAFE.ptr1_vtake{a}( p0 )
+
+        val () = hrecord_foreach$fwork<a><env>( !p0, env )
+        
+        prval () = plf(pf) 
+
+        val () = loop<tl0>(p0,sz - sizeof<a>, env)
+      in ignoret(5)
+      end
+
+    val () = loop<tl>(p, sz,env)
+  in
+  end
 
 extern
-fun {tl:tlist}{env: vt@ype+}
-  hrecord_foreach_env{n:nat}( h: !hrecord0(tl,n), env: &env >> _ ) 
-  : [m:nat | m <= n] size_t m
+fun {a:vt@ype+}
+    hrecord_clear$clear(  &a >> a? ) : void
+(*
+extern
+fun {a:vt@ype+}
+    {env:vt@ype+}
+    hrecord_clear$cont(  &a, &env ) : bool
+*)
+extern
+fun {tl:tlist}
+  hrecord_clear{len,sz:nat}{l:addr}( h: !hrecord(tl,len,sz,l) >> hrecord(tnil,0,sz+sz1,l)) 
+  : #[sz1:nat] size_t sz1
  
+implement {tl}
+hrecord_clear( hr  ) =
+  let
+    val p  = hrecord_ptrcast( hr )
+    (** Perhaps some of these should be arguments **)
+    (** This is weird because data is stored earliest --> latest **)
+    val (pfs | sz) = tlist_size<tl>()
 
-(**
-  Heterogenous records with O(1) storage and retrieval
-  are the goal here.
-  Initialization can come in a few forms:
 
-  hlist to hrecord -- intuitive, but comes with the overhead of
-    constructing a list.  This should be possible, but perhaps
-    not the main way to construct an hrecord
+    extern fun {tl:tlist}
+    loop {l:addr}{n:nat}(p: ptr l, sz: size_t n ) : void
+    
+    implement
+    loop<tlist_nil()>(p,sz) = ()
 
-  template per instantiation --
-     less overhead, but makes it difficult to bring in external
-     values. Setting and retrieval are easier; maybe this
-     is a good way to initialize.  Also, template implementations
-     may get tedious.
-     The perk here, however, is that you can manage
-     large hrecords automatically.
+    implement (a,tl0)
+    loop<tlist_cons(a,tl0)>(p,sz) =
+      let
 
-  convenience functions with tuples
-    I guess I could have these anyway.  There
-    would be an upper bound of 6 items, which
-    I'm not terribly excited about.
+        val () = assertloc( sz >  sizeof<a> )
+        val p0 = ptr_add<byte>(p,sz - sizeof<a>)
 
-  fixed size, gradual instantiation
-    All records start with tnil and a size
-    Items are pushed to the end of the list 
-    This would probably provide the best 
-    interface 
-**)
+        val () = assertloc(p0 > the_null_ptr)
+        val (pf,plf | p0) = $UNSAFE.ptr1_vtake{a}( p0 )
+
+        val () = hrecord_clear$clear<a>( !p0 )
+      
+        (** FIXME **) 
+        extern
+        prfn __assert{a:vt@ype+}( &a? >> a ) : void 
+        prval () = __assert{a}( !p0 )
+        prval () = plf( pf ) 
+        (*** ***)
+ 
+        val () = loop<tl0>(p0,sz - sizeof<a>)
+      in ignoret(5)
+      end
+
+    val () = loop<tl>( p, sz )
+
+    extern
+    prfn {tl:tlist}
+      __assert{len,sz:nat}{sz1:nat}{l:addr}( h: !hrecord(tl,len,sz,l) >> hrecord(tnil,0,sz+sz1,l), size_t sz1) 
+      : void
+
+    prval () = __assert( hr, sz )
+
+  in sz
+  end
+
 (** Create an hrecord from static array **)
-
-(** We need a way to "empty" the record **)
 
 absview hrecord_static( x:int, l:addr )
 
@@ -596,9 +670,11 @@ hrecord_create_b0ytes{n:nat}{l:addr}(
   | buf: ptr l
 ): ( hrecord_static(n,l) | hrecord(tnil,0,n,l) )
 
+
+(** Empty record, then claim to get proof of b0ytes back **)
 extern
 castfn 
-hrecord_b0ytes{n:nat}{l:addr}( 
+hrecord_claim_b0ytes{n:nat}{l:addr}( 
     pv: hrecord_static(n,l)
   | hr: hrecord(tnil,0,n,l)
   ): ( b0ytes(n) @ l | ptr l )
