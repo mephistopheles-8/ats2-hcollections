@@ -28,4 +28,4 @@ useful for eDSLs and language design.
 - Allow the user to stop foreach loop
 - Return sizes after push / pop
 
-Licence: MIT
+License: MIT
