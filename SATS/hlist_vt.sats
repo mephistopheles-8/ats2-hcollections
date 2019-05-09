@@ -22,12 +22,12 @@ fun {tl:tlist}
   : void
 
 fun {a:vt@ype+}{env:vt@ype+}
-hlist_foreach_env$fwork( &a >> _, &env >> _ )
+hlist_foreach$fwork( &a >> _, &env >> _ )
   : void
 
 fun {a:vt@ype+}
     {env:vt@ype+}
-    hlist_foreach_env$cont(  &a, &env ) : bool
+    hlist_foreach$cont(  &a, &env ) : bool
 
 fun {env:vt@ype+}{tl:tlist} 
 hlist_foreach_env{n:nat}( hl: !hlist_vt(tl,n), env: &env >> _ )

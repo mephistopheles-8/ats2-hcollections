@@ -192,7 +192,7 @@ hrecord_foreach_env{n0}( hr,  env ) =
 
         prval () = $UNSAFE.prop_assert{n1 > 0}()
  
-        val () = assertloc( sz >  sizeof<a> )
+        val () = assertloc( sz >=  sizeof<a> )
         val p0 = ptr_add<byte>(p,sz - sizeof<a>)
 
         val () = assertloc(p0 > the_null_ptr)

@@ -42,10 +42,11 @@ implement main0 ()
     stadef tl = bool ::: int ::: tnil
 
     implement(a)
-    hlist_foreach_env$fwork<a><int>(x,env) =
+    hlist_foreach$fwork<a><int>(x,env) =
       (println!(env, ": hlist_foreach_env$fwork"); env := env + 1)
 
-    val _ = hlist_foreach_env<int><tl>(tl0, e)
+    val sz = hlist_foreach_env<int><tl>(tl0, e)
+    val () = assertloc( sz = 2 )
 
     val () = hlist_vt_free<tl>( tl0 )
 
@@ -60,6 +61,17 @@ implement main0 ()
     
     val () = hrecord_push<int><tnil>( record , 5 )
     val () = hrecord_push<bool><int ::: tnil>( record , true )
+
+    implement(a)
+    hrecord_foreach$fwork<a><int>(x,env) =
+      (println!(env, ": hrecord_foreach_env$fwork"); env := env + 1)
+    val () = e := 0
+    val sz = hrecord_foreach_env<int><tl>(record, e)
+    val () = assertloc( sz = 2 )
+
+
+
+
     val b = hrecord_pop<bool><int ::: tnil>( record  )
     val () = println!("pop ",b)
     val b = hrecord_pop<int><tnil>( record  )

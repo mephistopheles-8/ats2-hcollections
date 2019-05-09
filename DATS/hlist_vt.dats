@@ -40,10 +40,10 @@ implement (a:vt@ype+, tl:tlist)
 
 (** Something like this could use a base implementation **)
 implement {a}{env}
-hlist_foreach_env$fwork( a, env ) = ()
+hlist_foreach$fwork( a, env ) = ()
 
 implement {a}{env}
-hlist_foreach_env$cont( a, env ) = true
+hlist_foreach$cont( a, env ) = true
 
 implement(env)
 hlist_foreach_env<env><tlist_nil()>( hl, env ) = i2sz(0)
@@ -53,10 +53,10 @@ hlist_foreach_env<env><tlist_cons(a,tl0)>{n1}( hl, env ) =
   let
     val-@hlist_cons(x,xs) = hl
     val sz = ( 
-      if hlist_foreach_env$cont<a><env>(x,env)
+      if hlist_foreach$cont<a><env>(x,env)
       then 
         let
-          val () = hlist_foreach_env$fwork<a><env>(x,env)
+          val () = hlist_foreach$fwork<a><env>(x,env)
           val sz = hlist_foreach_env<env><tl0>(xs, env );
          in sz + 1
         end
