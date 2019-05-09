@@ -42,7 +42,7 @@ implement main0 ()
     stadef tl = bool ::: int ::: tnil
 
     implement(a)
-    hlist_foreach_env$fwork<int><a>(x,env) =
+    hlist_foreach_env$fwork<a><int>(x,env) =
       (println!(env, ": hlist_foreach_env$fwork"); env := env + 1)
 
     val _ = hlist_foreach_env<int><tl>(tl0, e)

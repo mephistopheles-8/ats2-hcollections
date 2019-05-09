@@ -39,19 +39,29 @@ implement (a:vt@ype+, tl:tlist)
 
 
 (** Something like this could use a base implementation **)
-implement {env}{a}
+implement {a}{env}
 hlist_foreach_env$fwork( a, env ) = ()
 
+implement {a}{env}
+hlist_foreach_env$cont( a, env ) = true
 
 implement(env)
 hlist_foreach_env<env><tlist_nil()>( hl, env ) = i2sz(0)
 
 implement(env,a,tl0)
-hlist_foreach_env<env><tlist_cons(a,tl0)>( hl, env ) = 
+hlist_foreach_env<env><tlist_cons(a,tl0)>{n1}( hl, env ) = 
   let
     val-@hlist_cons(x,xs) = hl
-    val () = hlist_foreach_env$fwork<env><a>(x,env)
-    val sz =  hlist_foreach_env<env><tl0>(xs, env );
+    val sz = ( 
+      if hlist_foreach_env$cont<a><env>(x,env)
+      then 
+        let
+          val () = hlist_foreach_env$fwork<a><env>(x,env)
+          val sz = hlist_foreach_env<env><tl0>(xs, env );
+         in sz + 1
+        end
+      else i2sz(0)
+    ) : [m:nat | m <= n1] size_t m
     prval () = fold@hl
-  in sz + 1
+  in sz
   end

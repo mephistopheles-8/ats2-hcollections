@@ -61,16 +61,14 @@ fun {a,env:vt@ype+}{tl:tlist}
 fun {a:vt@ype+}
     {env:vt@ype+}
     hrecord_foreach$fwork(  &a >> _, &env >> _ ) : void
-(*
-extern
+
 fun {a:vt@ype+}
     {env:vt@ype+}
     hrecord_foreach$cont(  &a, &env ) : bool
-*)
 
 fun {env: vt@ype+}{tl:tlist}
   hrecord_foreach_env{n:nat}( h: !hrecord0(tl,n), env: &env >> _ ) 
-  : void//[m:nat | m <= n] size_t m
+  : [m:nat | m <= n] size_t m
 
 fun {a:vt@ype+}
     hrecord_clear$clear(  &a >> a? ) : void

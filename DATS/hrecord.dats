@@ -161,8 +161,17 @@ hrecord_with_env{ind,len}( pf | hr, ind, f, env ) =
   in  
   end
 
+
+
+implement {a}{env}
+hrecord_foreach$fwork( a, env ) = ()
+implement {a}{env}
+hrecord_foreach$cont( a, env ) = true
+
+
+
 implement {env}{tl}
-hrecord_foreach_env( hr,  env ) =
+hrecord_foreach_env{n0}( hr,  env ) =
   let
     val p  = hrecord_ptrcast( hr )
     (** Perhaps some of these should be arguments **)
@@ -171,31 +180,42 @@ hrecord_foreach_env( hr,  env ) =
 
 
     extern fun {tl:tlist}
-    loop {l:addr}{n:nat}(p: ptr l, sz: size_t n, env : &env >> _ ) : void
+    loop{len:nat}{l:addr}{n:nat}(p: ptr l, sz: size_t n, env : &env >> _ ) 
+    : [m:nat | m <= len] size_t m
     
     implement
-    loop<tlist_nil()>(p,sz,env) = ()
+    loop<tlist_nil()>(p,sz,env) = i2sz(0)
 
     implement (a,tl0)
-    loop<tlist_cons(a,tl0)>(p,sz,env) =
+    loop<tlist_cons(a,tl0)>{n1}(p,sz,env) =
       let
 
+        prval () = $UNSAFE.prop_assert{n1 > 0}()
+ 
         val () = assertloc( sz >  sizeof<a> )
         val p0 = ptr_add<byte>(p,sz - sizeof<a>)
 
         val () = assertloc(p0 > the_null_ptr)
         val (pf,plf | p0) = $UNSAFE.ptr1_vtake{a}( p0 )
 
-        val () = hrecord_foreach$fwork<a><env>( !p0, env )
-        
-        prval () = plf(pf) 
+        val sz = 
+          (if hrecord_foreach$cont<a><env>( !p0, env )
+          then 
+            let
+              val () = hrecord_foreach$fwork<a><env>( !p0, env )
+              val sz = loop<tl0>{n1-1}(p,sz - sizeof<a>, env)
+             in sz + 1 
+            end 
+          else i2sz(0)
+        ): [m:nat | m <= n1] size_t m
 
-        val () = loop<tl0>(p,sz - sizeof<a>, env)
-      in ignoret(5)
+        prval () = plf(pf) 
+        val () = ignoret(5)
+      in sz
       end
 
-    val () = loop<tl>(p, sz,env)
-  in
+    val sz = loop<tl>{n0}(p, sz,env)
+  in sz
   end
 
 implement(a:t0p)
