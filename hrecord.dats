@@ -296,8 +296,47 @@ implement (a:vt@ype+, tl:tlist)
        in end
 
 
+extern
+fun {env:vt@ype+}{a:vt@ype+}
+hlist_foreach_env$fwork( &a >> _, &env >> _ )
+  : void
+
+
+(** Something like this could use a base implementation **)
+implement {env}{a}
+hlist_foreach_env$fwork( a, env ) = ()
+
+
+extern
+fun {env:vt@ype+}{tl:tlist} 
+hlist_foreach_env{n:nat}( hl: !hlist_vt(tl,n), env: &env >> _ )
+  : [m:nat | m <= n] size_t m 
+
+
+implement(env)
+hlist_foreach_env<env><tlist_nil()>( hl, env ) = i2sz(0)
+
+
+implement(env,a,tl0)
+hlist_foreach_env<env><tlist_cons(a,tl0)>( hl, env ) = 
+  let
+    val-@hlist_cons(x,xs) = hl
+    val () = hlist_foreach_env$fwork<env><a>(x,env)
+    val sz =  hlist_foreach_env<env><tl0>(xs, env );
+    prval () = fold@hl
+  in sz + 1
+  end
+
+
 absvtype hrecord( tl:tlist, len: int, sz: int, l:addr )
 vtypedef hrecord0(tl:tlist, len:int) = [sz:nat][l:addr] hrecord(tl,len,sz,l)
+
+extern
+castfn 
+hrecord_ptrcast{tl:tlist}{len,sz:nat}{l:addr} ( 
+    !hrecord(tl,len,sz,l)
+  ) : ptr l
+
 (** Creates an intermediary until the 
     user finishes initializing **)
 extern
@@ -312,18 +351,40 @@ hrecord_nil{sz}( sz ) =
   )
 
 
-
-
 extern
 fun {tl:tlist}
   hrecord_create_hlist{n:nat}( h: hlist_vt(tl,n) ) 
-  : [l:addr][sz:nat] hrecord(tl,n,sz,l)
- 
+  : [l:addr] hrecord(tl,n,0,l)
+
 extern
 fun {a:vt@ype+}{tl:tlist}
   hrecord_push{sz:nat | sz >= sizeof(a)}{len:nat}{l:addr}( 
     hr: !hrecord(tl,len,sz,l) >> hrecord(a ::: tl,len + 1,sz - sizeof(a),l), x: a 
   ): void 
+
+implement {a}{tl}
+hrecord_push{sz}{len}{l}( hr, x ) =
+  let
+    val p  = hrecord_ptrcast( hr )
+
+    val (pf | sz) = tlist_size<tl>() 
+    val p0 = ptr_add<byte>(p,sz)
+ 
+    val () = assertloc(p0 > the_null_ptr) 
+
+    val () = 
+      $UNSAFE.ptr1_set<a>( p0, x ) 
+    
+   extern
+    prfn 
+    __assert{a:vt@ype+}{tl:tlist}{len,sz:nat}{l:addr}( 
+        hr:  !hrecord(tl,len,sz,l) >> hrecord(a ::: tl,len + 1,sz - sizeof(a),l) 
+    ) : void 
+
+    prval () = __assert{a}{tl}{len,sz}{l}( hr )
+  in 
+  end
+
 
 extern
 fun {a:vt@ype+}{tl:tlist}
@@ -331,6 +392,77 @@ fun {a:vt@ype+}{tl:tlist}
     hr: !hrecord(a ::: tl,len,sz,l) >> hrecord(tl,len - 1,sz + sizeof(a),l)  
   ): a 
 
+implement {a}{tl}
+hrecord_pop{sz}{len}{l}( hr ) =
+  let
+    val p  = hrecord_ptrcast( hr )
+
+    val (pf | sz) = tlist_size<tl>() 
+    val p0 = ptr_add<byte>(p,sz)
+ 
+    val () = assertloc(p0 > the_null_ptr) 
+
+    val x = 
+      $UNSAFE.ptr1_get<a>( p0 ) 
+    
+   extern
+    prfn 
+    __assert{a:vt@ype+}{tl:tlist}{len,sz:nat}{l:addr}( 
+        hr:  !hrecord(a ::: tl,len,sz,l) >> hrecord(tl,len - 1,sz + sizeof(a),l) 
+    ) : void 
+
+    prval () = __assert{a}{tl}{len,sz}{l}( hr )
+
+  in x 
+  end
+
+
+
+implement {tl:tlist}
+  hrecord_create_hlist( hl ) =
+  let
+    val (pf | sz) = tlist_size<tl>()
+    val hr = hrecord_nil<>( sz ) 
+
+    extern 
+    fun {tl1:tlist}
+      loop{sz,len:nat}{l:addr}(
+        pf: TLISTSZ(sz,tl1) 
+      | hr: !hrecord(tnil,0,sz,l) >> hrecord(tl1,len,0,l)
+      , hl: hlist_vt(tl1,len)
+      , sz: size_t sz
+      ): void
+
+    extern 
+    fun {a:vt@ype+}{tl0,tl1:tlist}
+      swap{sz,len1,len2:nat | sz >= sizeof(a); len2 > 0}{l:addr}(
+        hr: !hrecord(tl0,len1,sz,l) >> hrecord(a ::: tl0,len1 + 1,sz - sizeof(a),l)
+      , hl: hlist_vt(a ::: tl1,len2)
+      , sz: size_t sz
+      ): hlist_vt(tl1,len2-1)
+
+
+    implement(a,tl0,tl1)
+    swap<a><tl0,tl1>(
+      hr, hl, sz 
+    ) = let
+          val+~hlist_cons(x,xs) = hl
+          val () = hrecord_push<a><tl0>( hr, x )
+        in xs
+        end 
+
+
+
+
+
+
+    val () = loop<tl>( pf | hr, hl, sz )
+
+  in hr
+  end
+
+
+ 
 extern
 fun {a:vt@ype+}{tl:tlist}
   hrecord_exch{ind,len:nat | ind < len}(
@@ -339,6 +471,35 @@ fun {a:vt@ype+}{tl:tlist}
   , ind: size_t ind
   , x: a 
   ): a 
+
+
+implement {a}{tl}
+hrecord_exch{ind,len}( pf | hr, ind, x ) =
+  let
+    val p  = hrecord_ptrcast( hr )
+    (** Perhaps some of these should be arguments **)
+    (** This is weird because data is stored earliest --> latest **)
+    val (pfs | sz) = tlist_size<tl>()
+    val (pfl | len) = tlist_length<tl>()
+
+    val () = assertloc( ind < len )
+
+    val (pfo | offs) = tlist_offset<tl>(pfl | ind)
+
+    val () = assertloc( sz > (offs + sizeof<a>) )
+ 
+    val p0 = ptr_add<byte>(p,sz - (offs + sizeof<a>))
+
+    val () = assertloc(p0 > the_null_ptr)
+ 
+    val x0 = 
+      $UNSAFE.ptr1_get<a>( p0 ) 
+    val () = 
+      $UNSAFE.ptr1_set<a>( p0, x )
+    
+  in x0 
+  end
+
 
 extern
 fun {a,env:vt@ype+}{tl:tlist}
@@ -349,6 +510,33 @@ fun {a,env:vt@ype+}{tl:tlist}
   , x: (&a >> _, &env >> _) -> void
   , env: &env >> _ 
   ): void 
+
+implement {a,env}{tl}
+hrecord_with_env{ind,len}( pf | hr, ind, f, env ) =
+  let
+    val p  = hrecord_ptrcast( hr )
+    (** Perhaps some of these should be arguments **)
+    (** This is weird because data is stored earliest --> latest **)
+    val (pfs | sz) = tlist_size<tl>()
+    val (pfl | len) = tlist_length<tl>()
+
+    val () = assertloc( ind < len )
+
+    val (pfo | offs) = tlist_offset<tl>(pfl | ind)
+
+    val () = assertloc( sz > (offs + sizeof<a>) )
+ 
+    val p0 = ptr_add<byte>(p,sz - (offs + sizeof<a>))
+
+    val () = assertloc(p0 > the_null_ptr)
+
+    val (pf,plf | p0) = $UNSAFE.ptr1_vtake{a}( p0 )
+
+    val () = f( !p0, env )
+
+    prval () = plf(pf) 
+  in  
+  end
 
 
 extern
@@ -397,14 +585,24 @@ fun {tl:tlist}{env: vt@ype+}
     interface 
 **)
 (** Create an hrecord from static array **)
+
+(** We need a way to "empty" the record **)
+
+absview hrecord_static( x:int, l:addr )
+
 extern
-fun {tl:tlist} 
+castfn 
 hrecord_create_b0ytes{n:nat}{l:addr}( 
     pb: b0ytes(n) @ l
-  , psz: TLISTSZ(n,tl)
   | buf: ptr l
-  , sz: size_t n
-): hrecord(tnil,0,n,l)
+): ( hrecord_static(n,l) | hrecord(tnil,0,n,l) )
+
+extern
+castfn 
+hrecord_b0ytes{n:nat}{l:addr}( 
+    pv: hrecord_static(n,l)
+  | hr: hrecord(tnil,0,n,l)
+  ): ( b0ytes(n) @ l | ptr l )
 
 
 
@@ -412,34 +610,47 @@ implement main0 ()
   = println!("Hello [harray]")
   where {
         
-    val () = println!( sizeof<int64> )
-    val (pf | sz )   = tlist_size<int ::: int32 ::: int64 ::: tnil>() 
-    val (pf1 | len ) = tlist_length<int ::: int32 ::: int64 ::: tnil>()
+    stadef tl0 = int ::: int32 ::: int64 ::: tnil
+
+    val (pf | sz )   = tlist_size<tl0>() 
+    val (pf1 | len ) = tlist_length<tl0>()
 
     val () = assertloc( len = 3 )
 
     val () = println!("Size: ", sz) 
-    val () = println!("Len:", len) 
-    val (pf2 | offs ) = tlist_offset<int ::: int32 ::: int64 ::: tnil>(pf1 | i2sz(0))
+    val () = println!("Len:", len)
+
+ 
+    val (pf2 | offs ) = tlist_offset<tl0>(pf1 | i2sz(0))
     val () = println!("Offs 0:", offs) 
-    val (pf2 | offs ) = tlist_offset<int ::: int32 ::: int64 ::: tnil>(pf1 | i2sz(1))
+    val (pf2 | offs ) = tlist_offset<tl0>(pf1 | i2sz(1))
     val () = println!("Offs 1:", offs) 
-    val (pf2 | offs ) = tlist_offset<int ::: int32 ::: int64 ::: tnil>(pf1 | i2sz(2))
+    val (pf2 | offs ) = tlist_offset<tl0>(pf1 | i2sz(2))
     val () = println!("Offs 2:", offs) 
     
-    val (pf3 | isind ) = tlist_ind_of<int ::: int32 ::: int64 ::: tnil><int>(pf1 | i2sz(0))
+    val (pf3 | isind ) = tlist_ind_of<tl0><int>(pf1 | i2sz(0))
     val () = println!("Ind 0 is int:", isind)
     val () = assertloc ( isind ) 
     prval Some_v(_) = pf3
     
-    val (pf3 | isind ) = tlist_ind_of<int ::: int32 ::: int64 ::: tnil><bool>(pf1 | i2sz(0))
+    val (pf3 | isind ) = tlist_ind_of<tl0><bool>(pf1 | i2sz(0))
     val () = println!("Ind 0 is bool:", isind)
     val () = assertloc ( ~isind ) 
     prval None_v() = pf3
- 
+
+    var e : int = 0 
     val x : int = 5
     val y : bool = true
     val tl0 = hlist_cons( y, hlist_cons( x, hlist_nil() ))
-    val () = hlist_vt_free<bool ::: int ::: tnil>( tl0 )
+
+    stadef tl = bool ::: int ::: tnil
+
+    implement(a)
+    hlist_foreach_env$fwork<int><a>(x,env) =
+      (println!(env, ": hlist_foreach_env$fwork"); env := env + 1)
+
+    val _ = hlist_foreach_env<int><tl>(tl0, e)
+
+    val () = hlist_vt_free<tl>( tl0 )
 
   }
