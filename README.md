@@ -5,6 +5,7 @@ __Work in progress...__
 This is an implementation of heterogeneous datatypes
 for ATS2.
 
+- `tlist`    - type list sort
 - `hlist_vt` - heterogeneous linked list implementation
 - `hrecord` - flat, heterogeneous records
 
