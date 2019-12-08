@@ -202,9 +202,51 @@ tlist_ind_of( pf | i ) =
   in run_loop<tl>( i )
   end 
 
+implement {tl}{env}
+tlist_foreach_env( env ) =
+  let
+    extern
+    fun { a: vt@ype+  }
+        { tl: tlist  }
+        {env: vt@ype+}
+        loop( &env >> _ )
+        : [n:nat] size_t n 
+    
+    extern
+    fun { tl: tlist  } {env: vt@ype+}
+        run_loop( &env >> _ )
+        : [n:nat] size_t n  
 
+    implement (a,env)
+    loop<a><tlist_nil()><env>(env) = 
+      if tlist_foreach$cont<a><env>(env)
+      then ( 
+        tlist_foreach$fwork<a><env>(env); i2sz(1)
+      )
+      else i2sz(0)
+    
+    implement (a,b,tl,env)
+    loop<a><tlist_cons(b,tl)><env>(env) = 
+      let   
+        val sz = 
+          (
+            if tlist_foreach$cont<a><env>(env)
+            then ( 
+              tlist_foreach$fwork<a><env>(env); loop<b><tl><env>(env) + 1
+            )
+            else i2sz(0)
+          ) : [n:nat] size_t n
+        (** Break tail recursion **)
+        val () = ignoret(5)
+       in sz
+      end
 
+    implement
+    run_loop<tlist_nil()><env>(env) = i2sz(0)
+    
+    implement (a,tl)
+    run_loop<tlist_cons(a,tl)><env>(env) = loop<a><tl><env>(env)
 
-
-
-
+  in run_loop<tl><env>(env)
+  end
+ 

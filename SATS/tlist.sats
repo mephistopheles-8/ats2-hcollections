@@ -61,3 +61,18 @@ fun
   tlist_ind_of{ind,len:nat | ind < len; len > 0}
   ( pf: TLISTLEN(len,tl) | i: size_t ind ) 
   : [b:bool] (option_v(TLISTIND(ind,tl,a0), b) | bool b)
+
+
+fun {a:vt@ype+}{env:vt@ype+}
+  tlist_foreach$fwork( &env >> _ ) : void
+
+fun {a:vt@ype+}{env:vt@ype+}
+  tlist_foreach$cont( &env ) : bool
+
+fun 
+  {tl:tlist}{env:vt@ype+}
+  tlist_foreach_env( &env >> _) 
+  : [n:nat] size_t n
+
+
+
